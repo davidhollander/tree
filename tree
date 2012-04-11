@@ -1,0 +1,140 @@
+#!/usr/bin/luajit
+--[[
+tree
+Copyright David Hollander 2011
+MIT License
+
+"ls" like utility. Prints directories as trees of variable depth.
+]]
+
+-- CONSTANTS
+--
+local SGRC = '\27[32m\27[1m'
+local SGRD = '\27[34m\27[1m'
+local SGROFF = '\27[0m'
+local SGRHI = '\27[1m'
+local SGRLO = '\27[2m'
+local SGRLO = '\27[0m\27[2m'
+local CAPLEN = 22
+local PAD = 3
+local MAXCOLS = 120
+
+local DOC = [[
+Usage
+tree -h                 Print help
+tree                    Graph path '.' depth 1
+tree [#depth]           Graph path '.' depth [#depth]
+tree [path]             Graph path [path] depth 1
+tree [path] [#depth]    Graph path [path] depth [#depth]
+]]
+
+-- FFI
+--
+local ffi = require'ffi'
+local C = ffi.C
+ffi.cdef [[
+typedef unsigned long ino_t;
+typedef long off_t;
+typedef struct DIR DIR;
+struct dirent {
+    ino_t          d_ino;       /* inode number */
+    off_t          d_off;       /* offset to the next dirent */
+    unsigned short d_reclen;    /* length of this record */
+    unsigned char  d_type;      /* type of file */
+    char           d_name[256]; /* filename */
+};
+
+DIR *opendir(const char *name);
+int closedir(DIR *dir);
+struct dirent *readdir(DIR *dir);
+]]
+
+-- FS
+--
+local fs = {}
+function fs.dir(path)
+  local dir = ffi.gc(C.opendir(path or '.'), C.closedir)
+  return dir~=nil and function()
+    local entry = C.readdir(dir)
+    if entry~=nil then return ffi.string(entry.d_name) end
+  end
+end
+
+-- APP
+--
+local graph = {
+  files = {},
+  folders = {},
+  folders2 = {}
+}
+
+local function parse(parent, name, depth)
+  local path = parent.path and (parent.path..'/'..name) or name
+  local folder = fs.dir(path)
+  if not folder then
+    table.insert(parent.files, name)
+  elseif depth == 0 then
+    table.insert(parent.folders2, name)
+  else
+    local this = {files={},folders={},folders2={},path=path,name=name}
+    table.insert(parent.folders, this)
+    for x in folder do
+      if x:sub(1,1)~='.' then
+        parse(this, x, depth-1)
+      end
+    end
+    table.sort(this.files)
+    table.sort(this.folders2)
+    table.sort(this.folders, function(a,b) return a.path<b.path end)
+  end
+end
+
+local function cap(str,n)
+  return #str>n and str:sub(1,n-2)..SGRLO..'..'..SGROFF..'  ' or str..'  '
+end
+
+local function render(graph, d)
+  local m = d*PAD
+  if #graph.files > 0 then
+    local x = m
+    io.write((' '):rep(m))
+    for i,f in ipairs(graph.files) do
+      if x>MAXCOLS then x=m; io.write('\n',(' '):rep(m)) end
+      local str = cap(f, CAPLEN)
+      x = x + #str
+      io.write(str)
+    end
+    print()
+  end
+  if #graph.folders2>0 then
+    local x = m
+    io.write((' '):rep(m))
+    for i,g in ipairs(graph.folders2) do
+      if x>MAXCOLS then x=m; io.write('\n',(' '):rep(m)) end
+      local str = cap(g, CAPLEN)
+      x = x + #str
+      io.write(SGRD, str)
+    end
+    io.write(SGROFF,'\n')
+  end
+  if #graph.folders>0 then
+    for i,g in ipairs(graph.folders) do
+      io.write((' '):rep(m),SGRC,g.name,SGROFF,'\n')
+      render(g,d+1)
+    end
+  end
+end
+
+-- INPUT
+--
+local a, b = ...
+if a == '-h' or a == '--h' or a=='-help' or a=='--help' then
+  print(DOC)
+elseif tonumber(a) then
+  parse(graph, '.', a)
+elseif tonumber(b) then
+  parse(graph, a, b)
+else
+  parse(graph, a or '.', 1)
+end
+render(graph,0)
