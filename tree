@@ -16,8 +16,10 @@ local SGRHI = '\27[1m'
 local SGRLO = '\27[2m'
 local SGRLO = '\27[0m\27[2m'
 local CAPLEN = 22
-local PAD = 3
-local MAXCOLS = 120
+local TAB = 3
+local PAD = 2
+local MAXCOLS = 100
+local ti, tc = table.insert, table.concat
 
 local DOC = [[
 Usage
@@ -83,43 +85,47 @@ local function parse(parent, name, depth)
         parse(this, x, depth-1)
       end
     end
-    table.sort(this.files)
-    table.sort(this.folders2)
+    table.sort(this.files, function(a,b) return a:lower()<b:lower() end)
+    table.sort(this.folders2, function(a,b) return a:lower()<b:lower() end)
     table.sort(this.folders, function(a,b) return a.path<b.path end)
   end
 end
 
 local function cap(str,n)
-  return #str>n and str:sub(1,n-2)..SGRLO..'..'..SGROFF..'  ' or str..'  '
+  if #str>n then
+    return tc {str:sub(1,n-2),SGRLO,'..',SGROFF,(' '):rep(PAD)}, n+PAD
+  else
+    return str..(' '):rep(PAD), #str+PAD
+  end
 end
 
 local function render(graph, d)
-  local m = d*PAD
+  local margin = d*TAB
   if #graph.files > 0 then
-    local x = m
-    io.write((' '):rep(m))
+    local x = margin
+    io.write((' '):rep(margin))
     for i,f in ipairs(graph.files) do
-      if x>MAXCOLS then x=m; io.write('\n',(' '):rep(m)) end
-      local str = cap(f, CAPLEN)
-      x = x + #str
+      local str, len = cap(f, CAPLEN)
+      x = x + len
+      if x>(MAXCOLS+PAD) then x=margin+len; io.write('\n',(' '):rep(margin)) end
       io.write(str)
     end
     print()
   end
   if #graph.folders2>0 then
-    local x = m
-    io.write((' '):rep(m))
+    local x = margin
+    io.write((' '):rep(margin))
     for i,g in ipairs(graph.folders2) do
-      if x>MAXCOLS then x=m; io.write('\n',(' '):rep(m)) end
-      local str = cap(g, CAPLEN)
-      x = x + #str
+      local str, len = cap(g, CAPLEN)
+      x = x + len
+      if x>(MAXCOLS+PAD) then x=margin+len; io.write('\n',(' '):rep(margin)) end
       io.write(SGRD, str)
     end
     io.write(SGROFF,'\n')
   end
   if #graph.folders>0 then
     for i,g in ipairs(graph.folders) do
-      io.write((' '):rep(m),SGRC,g.name,SGROFF,'\n')
+      io.write((' '):rep(margin),SGRC,g.name,SGROFF,'\n')
       render(g,d+1)
     end
   end

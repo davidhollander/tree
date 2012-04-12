@@ -8,6 +8,10 @@ Create an alias in ~/.bashrc to install
 
     alias t="/home/user/bin/tree"
 
+Change MAXCOLS to set your desired word wrap width
+    
+    local MAXCOLS = 100
+
 Usage
 
     tree -h                 Print help
@@ -16,4 +20,4 @@ Usage
     tree [path]             Graph path [path] depth 1
     tree [path] [#depth]    Graph path [path] depth [#depth]
 
-![Example](http://i.imgur.com/hIPL0.png)
+![Example](http://i.imgur.com/bRZ1J.png)
