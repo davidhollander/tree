@@ -13,12 +13,12 @@ local SGRC = '\27[32m\27[1m'
 local SGRD = '\27[34m\27[1m'
 local SGROFF = '\27[0m'
 local SGRHI = '\27[1m'
-local SGRLO = '\27[2m'
 local SGRLO = '\27[0m\27[2m'
-local CAPLEN = 22
+local CAP = '>'
+local CAPLEN = 26
 local TAB = 3
 local PAD = 2
-local MAXCOLS = 100
+local MAXCOLS = 80
 local ti, tc = table.insert, table.concat
 
 local DOC = [[
@@ -93,7 +93,7 @@ end
 
 local function cap(str,n)
   if #str>n then
-    return tc {str:sub(1,n-2),SGRLO,'..',SGROFF,(' '):rep(PAD)}, n+PAD
+    return tc {str:sub(1,n-#CAP),SGRLO,CAP,SGROFF,(' '):rep(PAD)}, n+PAD
   else
     return str..(' '):rep(PAD), #str+PAD
   end
